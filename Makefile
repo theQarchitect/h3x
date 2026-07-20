@@ -37,7 +37,7 @@ endif
 
 # Source files
 LIB_SRCS = src/h3x_format.c src/h3x_neon.c src/h3x_predictor.c
-TOOLS = h3x_analyze h3x_patch h3x_lucky h3x_heal h3x_tcp h3x_sig h3x_sentinel h3x_netwatch h3x_grammar h3x_syscall h3x_apfs h3x_tcp h3x_sig
+TOOLS = h3x_analyze h3x_patch h3x_lucky h3x_heal h3x_tcp h3x_sig h3x_sentinel h3x_netwatch h3x_grammar h3x_syscall h3x_apfs
 
 .PHONY: all lib tools test install sign notarize clean dist
 
