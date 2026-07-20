@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include "../include/h3x_format.h"
 
 #ifdef __APPLE__
@@ -378,6 +380,186 @@ int main(int argc, char *argv[]) {
         free(data); return 0;
     }
 #endif
+
+    if (!strcmp(argv[1], "--auto-learn")) {
+        /* Scan all directories in PATH, fingerprint every executable,
+         * cluster by geometric similarity, output a learned library */
+        const char *path_env = getenv("PATH");
+        if (!path_env) { fprintf(stderr, "PATH not set\n"); return 1; }
+
+        printf("═══════════════════════════════════════════════════════════════\n");
+        printf("  H3X GRAMMAR AUTO-LEARN — Scanning PATH\n");
+        printf("═══════════════════════════════════════════════════════════════\n\n");
+
+        #define MAX_LEARNED 512
+        typedef struct { char path[256]; GrammarFingerprint fp; } LearnedEntry;
+        LearnedEntry *learned = calloc(MAX_LEARNED, sizeof(LearnedEntry));
+        int n_learned = 0;
+
+        /* Parse PATH and scan each directory */
+        char *path_copy = strdup(path_env);
+        char *dir = strtok(path_copy, ":");
+        int dirs_scanned = 0;
+
+        while (dir && n_learned < MAX_LEARNED) {
+            DIR *d = opendir(dir);
+            if (!d) { dir = strtok(NULL, ":"); continue; }
+            dirs_scanned++;
+
+            struct dirent *ent;
+            while ((ent = readdir(d)) && n_learned < MAX_LEARNED) {
+                if (ent->d_name[0] == '.') continue;
+
+                char fullpath[512];
+                snprintf(fullpath, sizeof(fullpath), "%s/%s", dir, ent->d_name);
+
+                /* Check if it's a regular file and executable */
+                struct stat st;
+                if (stat(fullpath, &st) != 0) continue;
+                if (!S_ISREG(st.st_mode)) continue;
+                if (!(st.st_mode & S_IXUSR)) continue;
+                if (st.st_size < 256 || st.st_size > 50*1024*1024) continue;
+
+                /* Read first 8K for fingerprinting */
+                FILE *fp = fopen(fullpath, "rb");
+                if (!fp) continue;
+                size_t read_size = st.st_size < 8192 ? st.st_size : 8192;
+                uint8_t *buf = malloc(read_size);
+                size_t got = fread(buf, 1, read_size, fp);
+                fclose(fp);
+
+                if (got < 64) { free(buf); continue; }
+
+                GrammarFingerprint gfp = compute_fingerprint(buf, got, ent->d_name);
+                strncpy(learned[n_learned].path, fullpath, 255);
+                learned[n_learned].fp = gfp;
+                n_learned++;
+                free(buf);
+            }
+            closedir(d);
+            dir = strtok(NULL, ":");
+        }
+        free(path_copy);
+
+        printf("  Scanned %d directories, fingerprinted %d executables\n\n", dirs_scanned, n_learned);
+
+        /* Cluster by geometric similarity using simple k-means-like grouping */
+        #define MAX_CLUSTERS 20
+        typedef struct {
+            GrammarFingerprint centroid;
+            int members[MAX_LEARNED];
+            int n_members;
+            char label[64];
+        } Cluster;
+        Cluster clusters[MAX_CLUSTERS];
+        int n_clusters = 0;
+
+        /* Greedy clustering: assign each entry to nearest cluster or create new */
+        float CLUSTER_THRESHOLD = 0.25f;
+        for (int i = 0; i < n_learned; i++) {
+            int best_cluster = -1;
+            float best_dist = CLUSTER_THRESHOLD;
+
+            for (int c = 0; c < n_clusters; c++) {
+                float d = fingerprint_distance(&learned[i].fp, &clusters[c].centroid);
+                if (d < best_dist) { best_dist = d; best_cluster = c; }
+            }
+
+            if (best_cluster >= 0) {
+                /* Add to existing cluster */
+                if (clusters[best_cluster].n_members < MAX_LEARNED)
+                    clusters[best_cluster].members[clusters[best_cluster].n_members++] = i;
+            } else if (n_clusters < MAX_CLUSTERS) {
+                /* Create new cluster */
+                clusters[n_clusters].centroid = learned[i].fp;
+                clusters[n_clusters].members[0] = i;
+                clusters[n_clusters].n_members = 1;
+                /* Auto-label from first member */
+                const char *known = identify_grammar(&learned[i].fp, NULL);
+                snprintf(clusters[n_clusters].label, 63, "%s", known);
+                n_clusters++;
+            }
+        }
+
+        /* Update centroids (average of members) */
+        for (int c = 0; c < n_clusters; c++) {
+            if (clusters[c].n_members == 0) continue;
+            memset(&clusters[c].centroid, 0, sizeof(GrammarFingerprint));
+            for (int m = 0; m < clusters[c].n_members; m++) {
+                int idx = clusters[c].members[m];
+                clusters[c].centroid.identity_density += learned[idx].fp.identity_density;
+                clusters[c].centroid.energy_mean += learned[idx].fp.energy_mean;
+                clusters[c].centroid.bigram_entropy += learned[idx].fp.bigram_entropy;
+                clusters[c].centroid.autocorr_lag8 += learned[idx].fp.autocorr_lag8;
+                for (int t = 0; t < 5; t++)
+                    clusters[c].centroid.token_dist[t] += learned[idx].fp.token_dist[t];
+            }
+            int nm = clusters[c].n_members;
+            clusters[c].centroid.identity_density /= nm;
+            clusters[c].centroid.energy_mean /= nm;
+            clusters[c].centroid.bigram_entropy /= nm;
+            clusters[c].centroid.autocorr_lag8 /= nm;
+            for (int t = 0; t < 5; t++) clusters[c].centroid.token_dist[t] /= nm;
+        }
+
+        /* Print clusters */
+        printf("  ╔══════════════════════════════════════════════════════════════╗\n");
+        printf("  ║  DISCOVERED GEOMETRIC CLUSTERS                              ║\n");
+        printf("  ╚══════════════════════════════════════════════════════════════╝\n\n");
+        printf("  %-4s %-25s %5s %5s %5s %5s  Examples\n",
+               "#", "Classification", "ID%", "Enrgy", "Entr", "N");
+        printf("  ─────────────────────────────────────────────────────────────────────\n");
+
+        for (int c = 0; c < n_clusters; c++) {
+            /* Show first 3 members as examples */
+            char examples[256] = "";
+            for (int m = 0; m < clusters[c].n_members && m < 3; m++) {
+                int idx = clusters[c].members[m];
+                const char *base = strrchr(learned[idx].path, '/');
+                base = base ? base + 1 : learned[idx].path;
+                if (m > 0) strcat(examples, ", ");
+                strncat(examples, base, 20);
+            }
+            if (clusters[c].n_members > 3) {
+                char more[32]; snprintf(more, 31, " +%d more", clusters[c].n_members - 3);
+                strcat(examples, more);
+            }
+
+            printf("  %-4d %-25s %4.0f%% %5.2f %5.2f %5d  %s\n",
+                   c + 1, clusters[c].label,
+                   clusters[c].centroid.identity_density * 100,
+                   clusters[c].centroid.energy_mean,
+                   clusters[c].centroid.bigram_entropy,
+                   clusters[c].n_members, examples);
+        }
+
+        /* Cross-cluster similarity matrix */
+        if (n_clusters > 1) {
+            printf("\n  ╔══════════════════════════════════════════════════════════════╗\n");
+            printf("  ║  CROSS-CLUSTER SIMILARITY (shared geometric structure)     ║\n");
+            printf("  ╚══════════════════════════════════════════════════════════════╝\n\n");
+            printf("  %4s", "");
+            for (int c = 0; c < n_clusters && c < 10; c++) printf(" %5d", c+1);
+            printf("\n  ────");
+            for (int c = 0; c < n_clusters && c < 10; c++) printf("──────");
+            printf("\n");
+
+            for (int i = 0; i < n_clusters && i < 10; i++) {
+                printf("  %3d ", i+1);
+                for (int j = 0; j < n_clusters && j < 10; j++) {
+                    float d = fingerprint_distance(&clusters[i].centroid, &clusters[j].centroid);
+                    float sim = 1.0f / (1.0f + d);
+                    if (i == j) printf("  --- ");
+                    else printf(" %4.0f%%", sim * 100);
+                }
+                printf("  %s\n", clusters[i].label);
+            }
+        }
+
+        printf("\n  Total: %d executables → %d geometric clusters\n", n_learned, n_clusters);
+        free(learned);
+        return 0;
+    }
 
     fprintf(stderr, "Unknown command or missing arguments.\n");
     return 1;
