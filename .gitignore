@@ -1,0 +1,6 @@
+build/
+*.o
+*.dylib
+*.so
+*.dSYM/
+.DS_Store
