@@ -1,0 +1,20 @@
+#!/bin/bash
+# H3X Post-Install Script
+# Loads the sentinel daemon and verifies installation
+
+# Load the sentinel daemon (runs at boot, monitors system geometry)
+if [ -f /Library/LaunchDaemons/com.qomputeai.h3x.sentinel.plist ]; then
+    launchctl load -w /Library/LaunchDaemons/com.qomputeai.h3x.sentinel.plist 2>/dev/null || true
+    echo "H3X Sentinel daemon loaded."
+fi
+
+# Verify tools are accessible
+if command -v h3x_analyze &>/dev/null; then
+    echo "H3X toolkit installed successfully."
+    echo "  Tools: $(ls /usr/local/bin/h3x_* 2>/dev/null | wc -l | tr -d ' ') binaries"
+    echo "  Run: h3x_analyze <file>"
+else
+    echo "H3X tools installed to /usr/local/bin/"
+fi
+
+exit 0

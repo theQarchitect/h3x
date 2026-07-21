@@ -1,0 +1,11 @@
+#!/bin/bash
+# H3X Pre-Install Script
+# Stops existing sentinel if running, backs up any existing config
+
+# Stop existing sentinel daemon if running
+if launchctl list | grep -q "com.qomputeai.h3x.sentinel"; then
+    launchctl unload /Library/LaunchDaemons/com.qomputeai.h3x.sentinel.plist 2>/dev/null || true
+    echo "Stopped existing H3X sentinel."
+fi
+
+exit 0

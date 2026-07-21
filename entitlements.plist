@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- SECURITY AUDIT TOOL ENTITLEMENTS
+         These allow h3x to inspect running processes, read memory,
+         and monitor system state — required for binary auditing. -->
+
+    <!-- task_for_pid: Required to read process memory (h3x_sentinel, h3x_grammar --compare-runtime) -->
+    <key>com.apple.security.cs.debugger</key>
+    <true/>
+
+    <!-- Allow reading other processes' memory for geometric analysis -->
+    <key>com.apple.security.get-task-allow</key>
+    <false/>
+
+    <!-- NO unsigned executable memory (we don't JIT) -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <false/>
+
+    <!-- NO JIT (pure analysis tool, never generates code) -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+
+    <!-- NO dyld environment override (hardened against LD injection) -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <false/>
+
+    <!-- Library validation ON (only load signed libraries) -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <false/>
+
+    <!-- Executable page protection ON -->
+    <key>com.apple.security.cs.disable-executable-page-protection</key>
+    <false/>
+</dict>
+</plist>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.qomputeai.h3x.sentinel</string>
+
+    <key>Comment</key>
+    <string>H3X Geometric Runtime Monitor — detects exploitation via memory geometry drift</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/h3x_sentinel</string>
+        <string>--watch-system</string>
+    </array>
+
+    <!-- Run at boot, keep alive -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Throttle restarts -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- Log output -->
+    <key>StandardOutPath</key>
+    <string>/var/log/h3x_sentinel.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/h3x_sentinel.err</string>
+
+    <!-- Run as root (needed for task_for_pid) -->
+    <key>UserName</key>
+    <string>root</string>
+    <key>GroupName</key>
+    <string>wheel</string>
+</dict>
+</plist>
