@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 VERSION="1.3.0"
-IDENTIFIER="com.qomputeai.h3x"
+IDENTIFIER="ai.qompute.h3x.sentinel"
 SIGN_ID="${SIGN_ID:-Developer ID Installer: qomputeai inc (4HMYMNKRGB)}"
 APP_SIGN_ID="${APP_SIGN_ID:-Developer ID Application: qomputeai inc (4HMYMNKRGB)}"
 
@@ -25,23 +25,23 @@ fi
 # Step 2: Create package payload structure
 echo "  [2/5] Creating package payload..."
 PKG_ROOT=$(mktemp -d)
-mkdir -p "$PKG_ROOT/usr/local/bin"
-mkdir -p "$PKG_ROOT/usr/local/lib"
-mkdir -p "$PKG_ROOT/usr/local/include"
-mkdir -p "$PKG_ROOT/Library/LaunchDaemons"
+mkdir -p /usr/local/bin
+mkdir -p /usr/local/lib
+mkdir -p /usr/local/include
+mkdir -p "$HOME/Library/LaunchAgents"
 
 # Copy binaries
-cp build/h3x_* "$PKG_ROOT/usr/local/bin/"
-cp build/libh3x.dylib "$PKG_ROOT/usr/local/lib/" 2>/dev/null || true
-cp include/h3x_format.h "$PKG_ROOT/usr/local/include/"
+cp build/h3x_* /usr/local/bin/
+cp build/libh3x.dylib /usr/local/lib/ 2>/dev/null || true
+cp include/h3x_format.h /usr/local/include/
 
 # Copy LaunchDaemon
-cp pkg/com.qomputeai.h3x.sentinel.plist "$PKG_ROOT/Library/LaunchDaemons/"
+cp ./pkg/ai.qompute.h3x.sentinel.plist "$HOME/Library/LaunchAgents/"
 
 # Set permissions
-chmod 755 "$PKG_ROOT/usr/local/bin/"h3x_*
-chmod 644 "$PKG_ROOT/Library/LaunchDaemons/"*.plist
-chmod 644 "$PKG_ROOT/usr/local/include/"*.h
+chmod 755 /usr/local/bin/h3x_*
+chmod 644 "$HOME/Library/LaunchAgents/"*.plist
+chmod 644 /usr/local/include/*.h
 
 # Step 3: Create component package
 echo "  [3/5] Building component package..."
@@ -62,7 +62,7 @@ cat > /tmp/h3x_distribution.xml << DISTXML
 <?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
     <title>H3X Quaternionic Binary Geometry Toolkit</title>
-    <organization>com.qomputeai</organization>
+    <organization>ai.qompute</organization>
     <domains enable_localSystem="true"/>
     <options customize="never" require-scripts="true" rootVolumeOnly="true"/>
     <welcome file="welcome.html"/>
