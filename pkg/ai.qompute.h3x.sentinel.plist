@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.qomputeai.h3x.sentinel</string>
+    <string>ai.qompute.h3x.sentinel</string>
 
     <key>Comment</key>
     <string>H3X Geometric Runtime Monitor — detects exploitation via memory geometry drift</string>

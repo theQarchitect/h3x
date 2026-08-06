@@ -37,7 +37,7 @@ endif
 
 # Source files
 LIB_SRCS = src/h3x_format.c src/h3x_neon.c src/h3x_predictor.c
-TOOLS = h3x_analyze h3x_patch h3x_lucky h3x_heal h3x_tcp h3x_sig h3x_sentinel h3x_netwatch h3x_grammar h3x_syscall h3x_apfs
+TOOLS = h3x_analyze h3x_patch h3x_lucky h3x_heal h3x_tcp h3x_sig h3x_sentinel h3x_netwatch h3x_grammar h3x_syscall h3x_apfs h3x_lsof h3x_rootsh platform_ctl
 
 .PHONY: all lib tools test install sign notarize clean dist
 
@@ -96,6 +96,18 @@ build/h3x_syscall: src/h3x_syscall.c include/h3x_format.h
 build/h3x_apfs: src/h3x_apfs.c include/h3x_format.h
 	@mkdir -p build
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+
+build/h3x_lsof: src/h3x_lsof.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -o $@ $<
+
+build/h3x_rootsh: src/h3x_rootsh.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -o $@ $<
+
+build/platform_ctl: src/platform_ctl.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -o $@ $<
 
 # ─── Tests ──────────────────────────────────────────────────────────
 test: build/test_h3x

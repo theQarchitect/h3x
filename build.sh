@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 CC="${CC:-cc}"
 SIGN_ID="${SIGN_ID:-Developer ID Application: qomputeai inc (4HMYMNKRGB)}"
-BUNDLE_PREFIX="com.qomputeai.h3x"
+BUNDLE_PREFIX="ai.qompute.h3x.sentinel"
 
 # Hardened compiler flags:
 #   -O3              : Maximum optimization
@@ -115,7 +115,7 @@ fi
 if echo "$ENTS" | grep -q "get-task-allow.*true"; then
     echo "  ✗ WARNING: get-task-allow is TRUE (debuggable!)"
 else
-    echo "  ✓ Debugging disabled (get-task-allow = false)"
+    echo "  ✓ Debugging disabled (gety-task-allow = false)"
 fi
 
 echo

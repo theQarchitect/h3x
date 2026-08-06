@@ -2,9 +2,11 @@
 # H3X Post-Install Script
 # Loads the sentinel daemon and verifies installation
 
+PLIST="/Library/LaunchDaemons/ai.qompute.h3x.sentinel.plist"
+
 # Load the sentinel daemon (runs at boot, monitors system geometry)
-if [ -f /Library/LaunchDaemons/com.qomputeai.h3x.sentinel.plist ]; then
-    launchctl load -w /Library/LaunchDaemons/com.qomputeai.h3x.sentinel.plist 2>/dev/null || true
+if [ -f "$PLIST" ]; then
+    launchctl load -w "$PLIST" 2>/dev/null || true
     echo "H3X Sentinel daemon loaded."
 fi
 

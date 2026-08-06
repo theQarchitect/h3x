@@ -1,37 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  H3X SECURITY AUDIT TOOL ENTITLEMENTS
+  ====================================
+  Signed by build.sh under the QomputeAI Developer ID with the hardened
+  runtime.
+
+  WHY THIS FILE WAS REWRITTEN
+  ===========================
+  The previous version carried, inside an XML comment, the text
+  "h3x_grammar" followed by a double hyphen and "compare-runtime". A
+  double hyphen is illegal inside an XML comment. plutil lints such a
+  file as valid, but AMFI (the parser codesign uses for entitlements)
+  rejects the whole thing:
+
+      Failed to parse entitlements: AMFIUnserializeXML: syntax error
+      near line 9
+
+  build.sh runs under "set -e", so its codesign step failed on every
+  invocation and the signing never completed. That is why every h3x
+  binary shipped and installed to date is "adhoc, linker-signed" with
+  TeamIdentifier not set and no entitlements at all, and therefore why
+  h3x_sentinel could not call task_for_pid: it printed the refusal to
+  stderr, exited 0, and emitted an empty profile list that every caller
+  read as a clean scan.
+
+  Do not write a double hyphen in these comments. Use "=" to underline
+  and name flags without their leading hyphens in prose.
+
+  GRANT ONLY, NEVER DENY EXPLICITLY
+  =================================
+  The hardened runtime denies every capability that is not granted here,
+  so the previous list of keys set to false was redundant. Worse, a key
+  written as false is indistinguishable from an absent key at runtime
+  while looking deliberate in the file. Library validation, JIT, unsigned
+  executable memory, dyld environment overrides, executable page
+  protection and get-task-allow are all in their safe state precisely
+  because they are not mentioned below.
+-->
 <plist version="1.0">
 <dict>
-    <!-- SECURITY AUDIT TOOL ENTITLEMENTS
-         These allow h3x to inspect running processes, read memory,
-         and monitor system state — required for binary auditing. -->
+	<!-- task_for_pid, required to read another process's memory: the
+	     h3x_sentinel modes, and the compare-runtime mode of h3x_grammar.
+	     The only capability the toolkit needs beyond the defaults.
 
-    <!-- task_for_pid: Required to read process memory (h3x_sentinel, h3x_grammar --compare-runtime) -->
-    <key>com.apple.security.cs.debugger</key>
-    <true/>
-
-    <!-- Allow reading other processes' memory for geometric analysis -->
-    <key>com.apple.security.get-task-allow</key>
-    <false/>
-
-    <!-- NO unsigned executable memory (we don't JIT) -->
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <false/>
-
-    <!-- NO JIT (pure analysis tool, never generates code) -->
-    <key>com.apple.security.cs.allow-jit</key>
-    <false/>
-
-    <!-- NO dyld environment override (hardened against LD injection) -->
-    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
-    <false/>
-
-    <!-- Library validation ON (only load signed libraries) -->
-    <key>com.apple.security.cs.disable-library-validation</key>
-    <false/>
-
-    <!-- Executable page protection ON -->
-    <key>com.apple.security.cs.disable-executable-page-protection</key>
-    <false/>
+	     Note this is not sufficient on its own. It opens unsigned and
+	     third-party targets holding get-task-allow. Hardened targets
+	     without it, and Apple platform binaries under SIP, stay closed
+	     even to root; those need com.apple.system-task-ports, which is
+	     Apple-private. -->
+	<key>com.apple.security.cs.debugger</key>
+	<true/>
 </dict>
 </plist>

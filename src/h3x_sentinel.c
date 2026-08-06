@@ -11,12 +11,28 @@
 #include <math.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
+#include <errno.h>
+#include <sys/types.h>
 #include "../include/h3x_format.h"
+#include "../include/h3x_attack_map.h"
 
 #ifdef __APPLE__
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
+#include <libproc.h>
 #endif
+
+/* --watch-system: enumerate every pid on the host, try to profile each one
+ * optimistically (task_for_pid failures are reported verbosely; the caller
+ * filters what it cares about). Loops forever; SIGTERM/SIGINT exit cleanly.
+ * Classification of "valuable/suspicious" is the caller's job.
+ */
+#define WS_MAX_PIDS         4096
+#define WS_INTERVAL_MS      5000   /* cadence between full-host scans */
+
+static volatile sig_atomic_t g_should_exit = 0;
+static void handle_signal(int sig) { (void)sig; g_should_exit = 1; }
 
 #define MAX_REGIONS 256
 #define SAMPLE_SIZE 4096
@@ -71,10 +87,14 @@ static Snapshot snapshot_process(pid_t pid) {
     Snapshot snap = {0};
     snap.timestamp = time(NULL);
 
+    /* Optimistic: always try task_for_pid. Failures are expected for many
+     * pids (SIP-protected, other users) and are reported verbosely so the
+     * caller can disregard as it sees fit. */
     task_t task;
     kern_return_t kr = task_for_pid(mach_task_self(), pid, &task);
     if (kr != KERN_SUCCESS) {
-        fprintf(stderr, "task_for_pid failed (need root or entitlement): %d\n", kr);
+        fprintf(stderr, "task_for_pid(%d) failed: %d (%s)\n",
+                pid, kr, mach_error_string(kr));
         return snap;
     }
 
@@ -134,14 +154,92 @@ static void print_json_event(const char *event_type, const RegionProfile *rp,
                baseline->identity_density,
                rp->identity_density - baseline->identity_density);
     }
-    printf(",\"ts\":%ld}\n", time(NULL));
+    printf(",\"ts\":%ld", time(NULL));
+    h3x_emit_std_fields(stdout, event_type);  /* MITRE ATT&CK + NIST enrichment */
+    printf("}\n");
 }
 
 int main(int argc, char *argv[]) {
+    /* --watch-system is a no-PID mode; handle it before the argc<3 gate. */
+    if (argc >= 2 && !strcmp(argv[1], "--watch-system")) {
+        int interval_ms = WS_INTERVAL_MS;
+        for (int i = 2; i < argc; i++) {
+            if (!strcmp(argv[i], "--interval") && i + 1 < argc)
+                interval_ms = atoi(argv[++i]);
+        }
+
+        /* Line-buffer stdout/stderr so launchd's log stream sees events live. */
+        setvbuf(stdout, NULL, _IOLBF, 0);
+        setvbuf(stderr, NULL, _IOLBF, 0);
+
+        /* Clean shutdown on launchctl stop / bootout. */
+        signal(SIGTERM, handle_signal);
+        signal(SIGINT,  handle_signal);
+        signal(SIGPIPE, SIG_IGN);
+
+#ifdef __APPLE__
+        fprintf(stderr, "h3x_sentinel: --watch-system started (interval=%dms)\n", interval_ms);
+
+        /* Self-describing standards envelope so the SIEM can classify the
+         * whole stream (continuous host memory monitoring). */
+        printf("{\"tool\":\"h3x_sentinel\",\"activity\":\"SYSTEM_SCAN\"");
+        h3x_emit_std_fields(stdout, "SYSTEM_SCAN");
+        printf(",\"ts\":%ld}\n", (long)time(NULL));
+
+        int *pids = (int*)calloc(WS_MAX_PIDS, sizeof(int));
+        if (!pids) { fprintf(stderr, "OOM allocating pid buffer\n"); return 1; }
+
+        while (!g_should_exit) {
+            int n_bytes = proc_listpids(PROC_ALL_PIDS, 0, pids, WS_MAX_PIDS * (int)sizeof(int));
+            if (n_bytes <= 0) {
+                fprintf(stderr, "proc_listpids failed: %s\n", strerror(errno));
+                sleep(1);
+                continue;
+            }
+            int n_pids = n_bytes / (int)sizeof(int);
+            fprintf(stderr, "h3x_sentinel: scan cycle — %d pids\n", n_pids);
+
+            for (int i = 0; i < n_pids && !g_should_exit; i++) {
+                pid_t p = pids[i];
+                if (p <= 1 || p == getpid()) continue; /* skip kernel/launchd/self */
+
+                /* Optimistic snapshot; task_for_pid failures print to stderr
+                 * and the caller can disregard. */
+                Snapshot snap = snapshot_process(p);
+                if (snap.n_regions == 0) continue;
+
+                printf("{\"pid\":%d,\"regions\":%u,\"ts\":%ld,\"profiles\":[",
+                       p, snap.n_regions, (long)snap.timestamp);
+                for (uint32_t j = 0; j < snap.n_regions; j++) {
+                    RegionProfile *r = &snap.regions[j];
+                    printf("%s{\"addr\":\"0x%llx\",\"size\":%llu,\"id\":%.3f,\"energy\":%.3f}",
+                           j ? "," : "",
+                           (unsigned long long)r->address,
+                           (unsigned long long)r->size,
+                           r->identity_density, r->transition_energy);
+                }
+                printf("]}\n");
+            }
+
+            /* Sleep the cycle, but wake early on signal. */
+            for (int slept = 0; slept < interval_ms && !g_should_exit; slept += 100)
+                usleep(100 * 1000);
+        }
+
+        free(pids);
+        fprintf(stderr, "h3x_sentinel: --watch-system exiting cleanly\n");
+        return 0;
+#else
+        fprintf(stderr, "--watch-system: only supported on macOS in this build\n");
+        return 1;
+#endif
+    }
+
     if (argc < 3) {
         fprintf(stderr, "h3x_sentinel — Runtime Memory Monitor\n");
         fprintf(stderr, "Usage:\n");
         fprintf(stderr, "  %s --watch <PID> [--interval <ms>]\n", argv[0]);
+        fprintf(stderr, "  %s --watch-system [--interval <ms>]\n", argv[0]);
         fprintf(stderr, "  %s --baseline <PID>\n", argv[0]);
         fprintf(stderr, "  %s --check <PID>\n", argv[0]);
         fprintf(stderr, "\nDetects: heap spray, ROP chains, use-after-free\n");
