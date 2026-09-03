@@ -1,307 +1,119 @@
 ---
 layout: default
-title: H3X User Guide
+title: H3X — Quaternionic Binary Geometry
+description: Every byte has a shape. H3X measures it. A toolkit built on Hinch's Law of Applied Information Theory.
 ---
 
-# H3X User Guide
+# H3X
 
-A practical guide to using the H3X quaternionic binary geometry toolkit.
+### Quaternionic Binary Geometry Toolkit
 
-## Installation
+**Derek Hinch · QomputeAI · 2024–2026**
+[GitHub](https://github.com/theQarchitect/h3x) · [User Guide](guide.html) · [The Paper](H3X_PAPER.html) · [Geometric Signatures](GEOMETRIC_SIGNATURES.html)
+
+> Every byte in existence, when passed through the Level-1 Haar wavelet transform with its neighbour, lands on **exactly one of five discrete values**. Structured data traces tight orbits through that lattice. Random data fills it uniformly. H3X reads the difference — the geometric *shape* of code and data — without parsing a single format.
+
+H3X is ten small, dependency-free, code-signed C tools that see what byte-pattern matchers, cryptographic hashes, and fuzzy hashes cannot: the structural DNA of a binary, the invisible boundary between what a file *must be* and what it *chooses to be*, and the moment a running process drifts away from its own shape.
 
 ```bash
 git clone https://github.com/theQarchitect/h3x.git
-cd h3x
-make
-make install  # installs to /usr/local/bin
-```
-
-### Requirements
-
-- macOS 13+ or Linux (amd64/arm64)
-- C compiler (clang or gcc)
-- No external dependencies
-
-### Verify Installation
-
-```bash
-h3x_analyze --help
-h3x_grammar --library
+cd h3x && make && make install
+h3x_analyze /usr/bin/ssh          # classify every region as STRUCTURAL / CONSTRAINED / EDITABLE
+h3x_sig crypto_v1 --blame crypto_v2   # find exactly where two binaries diverge
+h3x_grammar --identify mystery.bin    # name a format from geometry alone
 ```
 
 ---
 
-## Quick Start
+## The Ethos
 
-### 1. Analyze Any File
+H3X is not a standalone trick. It is one instrument in a body of work that begins from a single, stubborn commitment: **an honest account of where a result actually comes from.** That commitment has a name in this project — *Hinch's Law of Applied Information Theory* — and a temperament that runs through every tool, every claim, and every page of the paper.
 
-```bash
-h3x_analyze /path/to/binary
-```
+### 1. The Wonderland frame — build it the way the joke says it can't be built
 
-This produces a structural report showing:
-- **Token distribution** (the 5-state lattice profile)
-- **Region breakdown** (STRUCTURAL / CONSTRAINED / EDITABLE percentages)
-- **Confidence heatmap** (visual representation of structure)
-- **Top editable regions** (safe modification targets)
+In 1843 Hamilton carved $i^2 = j^2 = k^2 = ijk = -1$ into a Dublin bridge, and mathematics got its first non-commutative algebra. Two decades later Lewis Carroll — on a well-known reading — found the whole business absurd and satirised it as the Mad Hatter's tea party: three characters circling a table, endlessly changing places and arriving nowhere, because the fourth member of the party, *Time*, had quarrelled with the Hatter and left. Strip the real part from a quaternion and you get three imaginary units that rotate forever and go nowhere.
 
-### 2. Generate a Geometric Signature
+**H3X is written from the other side of that joke.** Every element Carroll found ridiculous is here a working mechanism with a proof obligation attached. Keep Time at the table — carry the scalar rail, keep the determinant a unit and not a zero divisor — and the algebra stops spinning in place and starts doing exact, invertible work. The five-state lattice H3X reads is the transition alphabet of exactly that repaired algebra.
 
-```bash
-h3x_sig /path/to/binary --sign
-```
+### 2. Evidence-bounded, or it doesn't ship
 
-This outputs the **bound set** — a vector of per-segment accumulators that form the binary's geometric DNA. Use `--blame` to compare two files and find exactly where they diverge.
+The governing principle is deliberately deflationary:
 
-### 3. Identify an Unknown File
+> A lossless reversible transform *cannot* shorten a representation by itself. It only rearranges the source into a distribution some specified coder models better — and every claimed gain must charge its side information, headers, padding, and base state.
 
-```bash
-h3x_grammar --identify mystery_blob.bin
-```
+So the work leads with its **negative results**, not around them. When a transform wins on float32 data at 4.73× and *loses* on telemetry at a net cost of thousands of bytes, that is not hidden — it is the point: the law converts a surprise into an expected, measurable outcome. Ratios are always stated against a named denominator. A capability is never "activated by diagram" — a method in a class file is not evidence it contributed to a measurement. In H3X's own terms: a finding is only ever as strong as the probe that reproduces it, and a claim that couldn't run is labelled as such rather than dressed up as one that did.
 
-Matches the blob's transition geometry against the built-in library of 18 grammar fingerprints (ARM64, x86, Python, JSON, XML, shellcode, encrypted, etc.).
+### 3. Say exactly what is claimed — and where it ends
 
-### 4. Auto-Learn from Your System
+The mathematics here is literally the mathematics of quantum mechanics — $SU(2)$, spinor decomposition, biquaternion observables, the Born-rule overlap as a retrieval metric. And the boundary is stated just as plainly: this is quantum-mechanically aligned *mathematics on classical hardware*. No physical superposition, no entangled photons, no superluminal signalling, no quantum speedup. The parts that are load-bearing are load-bearing *because* the algebra is finite, invertible, and closed — not because of a borrowed mystique. Precision about what is **not** claimed is what makes the rest trustworthy.
 
-```bash
-h3x_grammar --auto-learn
-```
+### 4. The work is for someone
 
-Scans all executables in your PATH, fingerprints each one, and clusters them by geometric similarity. Shows which binary families share structure.
+The paper carries a dedication, and it belongs on the front page as much as the benchmarks do:
+
+> *I hope to locate one important signal one day. Today, I give the work to do so, in the effort to benefit all.*
+>
+> *May Tiffany be our guiding star as we walk our path toward a golden era of truly intelligent computation.*
+>
+> *Ad astra, per aspera.* — Derek Hinch
 
 ---
 
-## Tool Reference
+## The Core Discovery
 
-### h3x_analyze — Structural Region Classification
+For consecutive bytes $b_t, b_{t+1}$, the Level-1 Haar transition $T = F(b_t) - F(b_{t+1})$ has **every** coordinate in
 
-```bash
-h3x_analyze <file> [--warmup N] [--window N] [--json]
-```
+$$S = \left\{-\sqrt{2},\ -\tfrac{1}{\sqrt{2}},\ 0,\ +\tfrac{1}{\sqrt{2}},\ +\sqrt{2}\right\}.$$
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--warmup` | 200 | Frames before prediction starts |
-| `--window` | 32 | Smoothing window width |
-| `--json` | off | Output as JSON (for SIEM integration) |
+This is not an approximation — it is a proof. Bits are in $\{0,1\}$, so deltas are in $\{-1,0,1\}$, so Haar-scaled deltas land on those five values and no others. Over that lattice, three empirically stable laws govern all structured data (σ < 1% across 200 runs):
 
-**Output regions:**
-- 🔴 **STRUCTURAL** (confidence > 70%): Format-determined bytes. Do NOT modify.
-- 🟡 **CONSTRAINED** (50-70%): Soft structure. Modify carefully.
-- 🟢 **EDITABLE** (< 50%): Content bytes. Safe to modify freely.
+| Law | Meaning | Implication |
+|-----|---------|-------------|
+| **PERSIST** (≈78%) | Stability reinforces itself | Padding, constants, repeated structure stay stable |
+| **BOUNCE** (≈50%) | Extremes reflect toward centre | The lattice has reflecting boundaries |
+| **DRIFT** (≈45%) | Small changes return to baseline | Isolated edits do **not** cascade |
+
+And the consequence that makes H3X safe to *act* on: because the Haar atom is strictly 2-tap local, a change at position P perturbs only P−1 and P — **the orbit self-heals within 1–2 bytes.** Editable regions are therefore truly free to modify.
 
 ---
 
-### h3x_sig — Geometric Signatures & Blame
+## The Ten Tools
 
-```bash
-h3x_sig <file> --sign                    # Print bound set signature
-h3x_sig <file_a> --blame <file_b>        # Find divergence point
-h3x_sig <file_a> --similarity <file_b>   # Compute similarity (0.0-1.0)
-h3x_sig <file> --yara-rule <name>        # Generate geometric YARA rule
-```
+| Tool | Domain | What it does |
+|------|--------|--------------|
+| `h3x_analyze` | Static | Classify regions: STRUCTURAL / CONSTRAINED / EDITABLE |
+| `h3x_sig` | Signatures | Geometric fingerprint + blame divergence between binaries |
+| `h3x_grammar` | Classification | Identify format from geometry; auto-learn clusters from PATH |
+| `h3x_patch` | Modification | Inject payloads into verified-safe editable zones only |
+| `h3x_heal` | Repair | Restore the transition orbit after patching |
+| `h3x_lucky` | Fuzzing | Structure-aware mutation with cascade detection |
+| `h3x_sentinel` | Runtime | Process-memory drift: heap spray / ROP / UAF |
+| `h3x_netwatch` | Network | Protocol identity without DPI: encrypted vs plaintext |
+| `h3x_tcp` | Network | TCP ISN randomness quality |
+| `h3x_syscall` | Runtime | Syscall geometry anomaly vs static prediction |
 
-**Understanding similarity scores:**
-- 0.95-1.0: Same binary or trivial difference
-- 0.85-0.95: Same algorithm, different compilation
-- 0.70-0.85: Related but structurally different
-- < 0.70: Fundamentally different binaries
-
-**The blame output** shows which segments diverged, with their orbit hashes. A segment divergence in a STRUCTURAL region = algorithm change. A divergence in EDITABLE = content difference (harmless).
-
----
-
-### h3x_grammar — Language & Format Detection
-
-```bash
-h3x_grammar --identify <file>            # Identify format from geometry
-h3x_grammar --auto-learn                 # Cluster all PATH binaries
-h3x_grammar --library                    # List known fingerprints
-h3x_grammar --profile <file>             # JSON fingerprint output
-h3x_grammar --compare-runtime <pid> <binary>  # Detect injected code
-```
-
-**Grammar fingerprint features:**
-- Identity density (% of zero-transitions)
-- Transition energy (average magnitude)
-- Bigram entropy (predictability)
-- Autocorrelation (periodicity at byte/nibble boundaries)
+Full flags, output formats, and SIEM/YARA/CI integration are in the **[User Guide](guide.html)**.
 
 ---
 
-### h3x_patch — Safe Binary Patching
+## What the Evidence Shows
 
-```bash
-h3x_patch <file> --list                  # List editable regions
-h3x_patch <file> --inject <offset> <hex> # Patch at specific offset
-h3x_patch <file> --auto <hex_payload>    # Auto-select largest region
-h3x_patch <file> --embed <payload_file>  # Embed file into region
-```
+Reported against named denominators, and no further:
 
-**Safety:** Refuses to patch STRUCTURAL regions unless `--force` is used. Verifies no structural cascade after patching.
-
----
-
-### h3x_heal — Cascade Correction
-
-```bash
-h3x_heal <original> <patched> -o <healed>
-h3x_heal <file> --patch <offset> <hex> -o <output>
-```
-
-After patching, the healer walks forward from the patch site and solves for corrective bytes that restore the original transition orbit. Due to Haar locality, cascades self-correct within 1-2 bytes — the healer confirms this.
+- **Supply-chain backdoor detection** — a backdoored crypto build diverges on **43/60 segments** against its clean twin, while `-O0`/`-O3` recompilations of the *same* algorithm stay ≥ 87% similar with **zero** code-segment divergence.
+- **Program stability** — stable vs. buffer-overflowing servers show **opposite-polarity** global accumulators (+0.068 vs −2.585) and 93% segment divergence, despite identical interfaces and compile flags.
+- **Protocol identity without DPI** — TLS ≈ 38%, HTTP ≈ 50%, DNS ≈ 86% identity density, from the byte stream alone.
+- **Firmware** — encrypted `iBoot.img4` reads as 100% EDITABLE (zero structure leakage), while NVMe firmware resolves into 4,096 distinct code/data/padding regions with no disassembly.
+- **Throughput** — 200+ MB/s; O(1) per byte; no external dependencies.
 
 ---
 
-### h3x_lucky — Structure-Aware Fuzzer
+## Read Further
 
-```bash
-h3x_lucky <file> --fuzz <N> [--corpus dir]  # N mutation rounds
-h3x_lucky <file> --fingerprint               # Structural digest
-h3x_lucky <file_a> --diff <file_b>           # Compare fingerprints
-```
-
-**Mutations** (8 strategies): bitflip, byteflip, arithmetic, interesting values, block-zero, block-FF, swap, repeat.
-
-Only mutates EDITABLE regions. After each mutation, re-fingerprints to detect if structural regions shifted (cascade detection). Interesting findings saved to corpus.
+- **[User Guide](guide.html)** — every tool, every flag, worked examples, integration.
+- **[The H3X Paper](H3X_PAPER.html)** — *Quaternionic Transition Geometry as a Universal Binary Analysis Primitive*, with the completeness proof and the 11-domain evaluation.
+- **[Geometric Signatures](GEOMETRIC_SIGNATURES.html)** — the two-pass boundary-aware analysis and the SGH5 bound-set walk, for security professionals.
 
 ---
 
-### h3x_sentinel — Runtime Memory Monitor
-
-```bash
-h3x_sentinel --watch <PID> [--interval ms]  # Continuous monitoring
-h3x_sentinel --baseline <PID>               # Capture baseline
-h3x_sentinel --check <PID>                  # One-shot check
-```
-
-**Alerts** (JSON to stdout):
-- `HEAP_SPRAY_SUSPECT`: Identity density drop > 20%
-- `CODE_CORRUPTION`: STRUCTURAL region → EDITABLE
-- `INJECTION_SUSPECT`: Transition energy spike > 3σ
-
-*Requires root or task_for_pid entitlement on macOS.*
-
----
-
-### h3x_netwatch — Network Traffic Analysis
-
-```bash
-h3x_netwatch --demo              # Protocol fingerprinting demo
-h3x_netwatch --stdin             # Pipe from tcpdump
-h3x_netwatch --file <capture>    # Analyze saved capture
-```
-
-**Protocol classification rules:**
-- Identity > 60%: STRUCTURED (DNS, database protocols)
-- Identity 45-60%: PLAINTEXT (HTTP, SMTP, text protocols)
-- Identity 35-42%: ENCRYPTED (TLS, SSH, compressed)
-
----
-
-### h3x_tcp — TCP ISN Randomness Tester
-
-```bash
-h3x_tcp --generate-test random 500     # Test with good RNG
-h3x_tcp --generate-test weak 500       # Test with weak generator
-h3x_tcp --generate-test sequential 500 # Test with linear ISN
-h3x_tcp --analyze <isn_file>           # Analyze captured ISNs
-```
-
-**Grades:** PASS (cryptographic), ACCEPTABLE (adequate), WARN (learnable), FAIL (predictable)
-
----
-
-### h3x_syscall — Syscall Anomaly Detection
-
-```bash
-h3x_syscall --baseline <trace>           # Learn normal geometry
-h3x_syscall --monitor <trace>            # Detect anomalies
-h3x_syscall --compare <trace> <binary>   # Static vs runtime
-```
-
-Compares the predicted geometric profile (from static binary analysis) against actual runtime syscall traces. Divergence indicates injected code paths.
-
----
-
-### h3x_apfs — System Geometric Soundness
-
-```bash
-h3x_apfs --scan-kexts      # Fingerprint kernel extensions
-h3x_apfs --scan-firmware    # Analyze NVMe/boot firmware
-h3x_apfs --scan-drivers     # Check system binaries
-h3x_apfs --full             # All of the above
-```
-
-Flags geometrically anomalous system components:
-- `LOW_ID`: Identity density below expected for category
-- `HIGH_ENERGY`: Unusual transition patterns
-- `ENCRYPTED?`: Kext with encrypted geometry (possible packed rootkit)
-
----
-
-## Interpreting Results
-
-### The Identity Density Scale
-
-| Range | Meaning | Examples |
-|-------|---------|---------|
-| 95-100% | Zero-padded or constant | Universal binary stubs, empty regions |
-| 70-95% | Sparse code + padding | Compiled binaries with alignment |
-| 50-70% | Dense structured data | Text, XML, configs |
-| 38-42% | Encrypted/compressed | TLS, zlib, encrypted firmware |
-| < 38% | Unusual — investigate | Possibly corrupted or exotic encoding |
-
-### Reading the Confidence Heatmap
-
-```
-░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒████████████████████████████▒▒▒▒░░░
-^                      ^                            ^       ^
-EDITABLE           transition                 STRUCTURAL  EDITABLE
-(headers)          boundary                    (code)      (tail)
-```
-
----
-
-## Integration
-
-### With YARA
-
-```bash
-h3x_sig binary --yara-rule my_detection > rule.yar
-```
-
-### With SIEM (Splunk, ELK)
-
-```bash
-h3x_analyze binary --json | jq .
-h3x_sentinel --watch $PID  # outputs JSON events
-```
-
-### With CI/CD
-
-```bash
-# In your build pipeline:
-h3x_sig $NEW_BINARY --similarity $BASELINE
-# If similarity < 0.85, fail the build (unexpected structural change)
-```
-
----
-
-## FAQ
-
-**Q: Does this replace YARA?**  
-A: No — it complements YARA. Use YARA for known byte patterns. Use H3X for structural detection that survives recompilation.
-
-**Q: Can an attacker evade H3X?**  
-A: An attacker would need to match the geometric *shape* of the target code while implementing different logic. This is significantly harder than changing bytes to avoid pattern matching.
-
-**Q: Why not just use ssdeep?**  
-A: ssdeep gives you a similarity score. H3X gives you similarity + blame + region classification + runtime monitoring + protocol detection. And it's tolerant of recompilation.
-
-**Q: How fast is it?**  
-A: 200+ MB/s for analysis. The bigram model is O(1) per byte.
-
----
-
-*[Full Paper →](H3X_PAPER.md) | [Geometric Signatures →](GEOMETRIC_SIGNATURES.md) | [Repository →](https://github.com/theQarchitect/h3x)*
+*MIT Licensed · Copyright © 2024–2026 Derek Hinch / QomputeAI · All tools signed: Developer ID Application: qomputeai inc (4HMYMNKRGB)*

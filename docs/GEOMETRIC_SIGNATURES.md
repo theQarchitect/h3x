@@ -1,3 +1,10 @@
+---
+layout: default
+title: "H3X Geometric Signatures"
+---
+
+*[← Home]({{ site.baseurl }}/) · [User Guide](guide.html) · [Paper](H3X_PAPER.html)*
+
 # H3X Geometric Signatures for Security Professionals
 
 **Author:** Derek Hinch | **Version:** 1.1 | **Date:** July 2026

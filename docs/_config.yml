@@ -1,5 +1,23 @@
 title: H3X — Quaternionic Binary Geometry Toolkit
-description: Format-agnostic binary analysis using the 5-state wavelet transition lattice
+description: Format-agnostic binary analysis using the 5-state Hinch wavelet transition lattice
 theme: jekyll-theme-hacker
 baseurl: "/h3x"
 url: "https://theqarchitect.github.io"
+
+author: Derek Hinch
+show_downloads: true
+
+# Repository link surfaced by supporting themes
+github:
+  repository_url: https://github.com/theQarchitect/h3x
+
+# Keep the paper/guide Markdown readable as pages; ignore build/source noise.
+exclude:
+  - Makefile
+  - "*.c"
+  - "*.h"
+  - "*.m"
+
+kramdown:
+  math_engine: mathjax
+  syntax_highlighter: rouge

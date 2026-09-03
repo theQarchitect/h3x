@@ -1,3 +1,10 @@
+---
+layout: default
+title: "H3X Paper — Quaternionic Transition Geometry"
+---
+
+*[← Home]({{ site.baseurl }}/) · [User Guide](guide.html) · [Geometric Signatures](GEOMETRIC_SIGNATURES.html)*
+
 # Quaternionic Transition Geometry as a Universal Binary Analysis Primitive: The H3X Framework
 
 **Derek Hinch**  
