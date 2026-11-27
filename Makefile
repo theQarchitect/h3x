@@ -77,7 +77,7 @@ build/h3x_sig: src/h3x_sig.c include/h3x_format.h
 	@mkdir -p build
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
-build/h3x_sentinel: src/h3x_sentinel.c include/h3x_format.h
+build/h3x_sentinel: src/h3x_sentinel.c src/h3x_sentinel_core.h include/h3x_format.h
 	@mkdir -p build
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
@@ -169,3 +169,10 @@ dist: all
 # ─── Clean ─────────────────────────────────────────────────────────
 clean:
 	rm -rf build
+
+# The --watch comparison on synthetic snapshots: no root, no target process.
+.PHONY: test-sentinel-watch
+test-sentinel-watch:
+	@mkdir -p build
+	$(CC) -O2 -Wall -Wextra -Wno-unused-parameter -I include -o build/test_sentinel_watch tests/test_sentinel_watch.c -lm
+	./build/test_sentinel_watch
