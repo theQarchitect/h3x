@@ -34,53 +34,9 @@
 static volatile sig_atomic_t g_should_exit = 0;
 static void handle_signal(int sig) { (void)sig; g_should_exit = 1; }
 
-#define MAX_REGIONS 256
-#define SAMPLE_SIZE 4096
-
-typedef struct {
-    uint64_t address;
-    uint64_t size;
-    float identity_density;
-    float avg_confidence;
-    float transition_energy;
-} RegionProfile;
-
-typedef struct {
-    uint32_t n_regions;
-    RegionProfile regions[MAX_REGIONS];
-    time_t timestamp;
-} Snapshot;
-
-static void compute_tokens(uint8_t a, uint8_t b, uint8_t tok[8]) {
-    for(int i=0;i<4;i++){
-        int ec=(a>>(7-2*i))&1,oc=(a>>(6-2*i))&1,en=(b>>(7-2*i))&1,on=(b>>(6-2*i))&1;
-        tok[i]=(uint8_t)((ec+oc)-(en+on)+2);tok[4+i]=(uint8_t)((ec-oc)-(en-on)+2);
-    }
-}
-
-static RegionProfile profile_buffer(const uint8_t *buf, size_t len, uint64_t addr) {
-    RegionProfile rp = {0};
-    rp.address = addr;
-    rp.size = len;
-    if (len < 2) return rp;
-
-    uint32_t id_count=0, total=0;
-    float energy_sum=0;
-    size_t n = len < SAMPLE_SIZE ? len : SAMPLE_SIZE;
-
-    for(size_t i=0;i+1<n;i++){
-        uint8_t tok[8];
-        compute_tokens(buf[i], buf[i+1], tok);
-        for(int j=0;j<8;j++){
-            total++;
-            if(tok[j]==2) id_count++;
-            energy_sum += fabsf((float)tok[j] - 2.0f);
-        }
-    }
-    rp.identity_density = total>0 ? (float)id_count/total : 0;
-    rp.transition_energy = total>0 ? energy_sum/total : 0;
-    return rp;
-}
+#include "h3x_sentinel_core.h"
+#define MAX_REGIONS H3X_MAX_REGIONS
+#define SAMPLE_SIZE H3X_SAMPLE_SIZE
 
 #ifdef __APPLE__
 static Snapshot snapshot_process(pid_t pid) {
@@ -121,8 +77,11 @@ static Snapshot snapshot_process(pid_t pid) {
 
             kr = mach_vm_read(task, addr, read_size, &data_ptr, &data_cnt);
             if (kr == KERN_SUCCESS && data_cnt > 1) {
-                snap.regions[snap.n_regions] = profile_buffer(
-                    (uint8_t*)data_ptr, data_cnt, addr);
+                uint32_t prot = ((info.protection & VM_PROT_READ) ? H3X_PROT_READ : 0)
+                              | ((info.protection & VM_PROT_WRITE) ? H3X_PROT_WRITE : 0)
+                              | ((info.protection & VM_PROT_EXECUTE) ? H3X_PROT_EXECUTE : 0);
+                snap.regions[snap.n_regions] = h3x_profile_buffer(
+                    (uint8_t*)data_ptr, data_cnt, addr, (uint64_t)size, prot);
                 snap.n_regions++;
                 mach_vm_deallocate(mach_task_self(), data_ptr, data_cnt);
             }
@@ -146,9 +105,13 @@ static Snapshot snapshot_process(pid_t pid) {
 static void print_json_event(const char *event_type, const RegionProfile *rp,
                               const RegionProfile *baseline, pid_t pid) {
     printf("{\"event\":\"%s\",\"pid\":%d,\"addr\":\"0x%llx\",\"size\":%llu,"
+           "\"region_size\":%llu,\"prot\":\"%c%c%c\","
            "\"id_density\":%.3f,\"energy\":%.3f",
            event_type, pid, (unsigned long long)rp->address,
-           (unsigned long long)rp->size, rp->identity_density, rp->transition_energy);
+           (unsigned long long)rp->size, (unsigned long long)rp->region_size,
+           (rp->prot & H3X_PROT_READ) ? 'r' : '-', (rp->prot & H3X_PROT_WRITE) ? 'w' : '-',
+           (rp->prot & H3X_PROT_EXECUTE) ? 'x' : '-',
+           rp->identity_density, rp->transition_energy);
     if (baseline) {
         printf(",\"baseline_id\":%.3f,\"delta_id\":%.3f",
                baseline->identity_density,
@@ -157,6 +120,10 @@ static void print_json_event(const char *event_type, const RegionProfile *rp,
     printf(",\"ts\":%ld", time(NULL));
     h3x_emit_std_fields(stdout, event_type);  /* MITRE ATT&CK + NIST enrichment */
     printf("}\n");
+}
+
+static void watch_emit(const char *kind, const RegionProfile *cur, const RegionProfile *base, void *ctx) {
+    print_json_event(kind, cur, base, *(pid_t *)ctx);
 }
 
 int main(int argc, char *argv[]) {
@@ -270,38 +237,27 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "h3x_sentinel: Watching PID %d (interval=%dms)\n", pid, interval_ms);
         fprintf(stderr, "  Alerts on: id_density drop >20%%, energy spike >3σ\n\n");
 
-        /* Take baseline */
-        Snapshot baseline = snapshot_process(pid);
-        if (baseline.n_regions == 0) {
+        /* First scan becomes the baseline. Regions are matched by address (see
+         * h3x_sentinel_core.h); a condition is reported when it starts, not every scan. */
+        static Snapshot first, current;
+        static WatchState state;
+        first = snapshot_process(pid);
+        if (first.n_regions == 0) {
             fprintf(stderr, "Could not read process memory. Need root or entitlement.\n");
             return 1;
         }
-        fprintf(stderr, "  Baseline: %u regions captured\n", baseline.n_regions);
-
-        /* Monitor loop */
-        while (1) {
+        h3x_watch_init(&state, &first);
+        fprintf(stderr, "  Baseline: %u regions captured (matched by address; reported on change)\n", first.n_regions);
+        fflush(stderr);
+        while (!g_should_exit) {
             usleep(interval_ms * 1000);
-            Snapshot current = snapshot_process(pid);
+            current = snapshot_process(pid);
             if (current.n_regions == 0) {
                 fprintf(stderr, "Process %d gone\n", pid);
                 break;
             }
-
-            /* Compare against baseline */
-            for(uint32_t i=0;i<current.n_regions && i<baseline.n_regions;i++){
-                float id_delta = current.regions[i].identity_density - baseline.regions[i].identity_density;
-                float energy_delta = current.regions[i].transition_energy - baseline.regions[i].transition_energy;
-
-                if (id_delta < -0.20f) {
-                    print_json_event("HEAP_SPRAY_SUSPECT", &current.regions[i], &baseline.regions[i], pid);
-                }
-                if (id_delta > 0.30f && baseline.regions[i].identity_density < 0.5f) {
-                    print_json_event("CODE_CORRUPTION", &current.regions[i], &baseline.regions[i], pid);
-                }
-                if (energy_delta > 1.5f) {
-                    print_json_event("INJECTION_SUSPECT", &current.regions[i], &baseline.regions[i], pid);
-                }
-            }
+            struct { pid_t pid; } ctx = { pid };
+            if (h3x_watch_step(&state, &current, watch_emit, &ctx)) fflush(stdout);
         }
         return 0;
     }
